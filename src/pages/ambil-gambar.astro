@@ -1,0 +1,66 @@
+---
+
+---
+
+
+<video id="videoElement" autoplay width="400" height="300"></video>
+<button id="startButton">Mulai</button>
+<button id="stopButton">Stop</button>
+<button id="captureButton">Ambil Gambar</button>
+<img id="capturedImage" src="" alt="Captured Image">
+
+<script>
+const video = document.getElementById('videoElement') as HTMLVideoElement;
+const startButton = document.getElementById('startButton');
+const stopButton = document.getElementById('stopButton');
+const captureButton = document.getElementById('captureButton');
+const capturedImage = document.getElementById('capturedImage');
+let stream;
+
+// Fungsi untuk memulai video
+function startVideo() {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then((videoStream) => {
+      stream = videoStream;
+      video.srcObject = stream;
+    })
+    .catch((err) => {
+      console.error('Tidak dapat mengakses webcam:', err);
+    });
+}
+
+// Fungsi untuk menghentikan video
+function stopVideo() {
+  stream.getTracks().forEach(track => {
+    track.stop();
+  });
+}
+
+// Fungsi untuk mengambil gambar dari frame video
+function takeSnapshot() {
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // Mengatur gambar yang diambil sebagai sumber untuk tag img
+  capturedImage.src = canvas.toDataURL('image/png');
+}
+
+// Event listener untuk tombol mulai
+startButton.addEventListener('click', () => {
+  startVideo();
+});
+
+// Event listener untuk tombol stop
+stopButton.addEventListener('click', () => {
+  stopVideo();
+});
+
+// Event listener untuk tombol ambil gambar
+captureButton.addEventListener('click', () => {
+  video.pause(); // Menghentikan video sementara saat mengambil gambar
+  takeSnapshot();
+});
+
+</script>

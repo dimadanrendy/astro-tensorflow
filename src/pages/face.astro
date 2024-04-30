@@ -1,0 +1,201 @@
+---
+
+---
+<!-- <video id="video" autoplay></video> -->
+<video id="videoElement" autoplay width="400" height="300"></video>
+<button id="startButton">Mulai</button>
+<button id="stopButton">Stop</button>
+<button id="captureButton">Ambil Gambar</button>
+<h1>Face Similarity Detection</h1>
+  <div>
+    <h2>Image 1</h2>
+    <input type="file" id="fileInput1">
+    <img id="image1" src="" alt="Image 1" style="max-width: 300px;">
+  </div>
+  <div>
+    <h2>Image 2</h2>
+    <input type="file" id="fileInput2">
+    <img id="image2" src="" alt="Image 2" style="max-width: 300px;">
+  </div>
+  <div>
+    <button id="compareButton">Compare Faces</button>
+  </div>
+  <div id="result"></div>
+<script src="/face-api.min.js" is=inline></script>
+<script>
+
+  const startButton = document.getElementById('startButton');
+  const stopButton = document.getElementById('stopButton');
+  const captureButton = document.getElementById('captureButton');
+  const capturedImage = document.getElementById('image1');
+  const video = document.getElementById('videoElement') as HTMLVideoElement;
+  let stream;
+
+   function startVideo() {
+    navigator.mediaDevices.getUserMedia({ video: true })
+        .then((videoStream) => {
+        stream = videoStream;
+        video.srcObject = stream;
+        })
+        .catch((err) => {
+        console.error('Tidak dapat mengakses webcam:', err);
+        });
+    }
+
+    // Fungsi untuk menghentikan video
+    function stopVideo() {
+    stream.getTracks().forEach(track => {
+        track.stop();
+    });
+    }
+
+    // Fungsi untuk mengambil gambar dari frame video
+    function takeSnapshot() {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Mengatur gambar yang diambil sebagai sumber untuk tag img
+    capturedImage.src = canvas.toDataURL('image/png');
+    }
+
+    // Event listener untuk tombol mulai
+    startButton.addEventListener('click', () => {
+    startVideo();
+    });
+
+    // Event listener untuk tombol stop
+    stopButton.addEventListener('click', () => {
+    stopVideo();
+    });
+
+    // Event listener untuk tombol ambil gambar
+    captureButton.addEventListener('click', () => {
+    video.pause(); // Menghentikan video sementara saat mengambil gambar
+    takeSnapshot();
+    stopVideo();
+    });
+
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    console.log("----- START LOAD MODEL ------");
+    Promise.all([
+        faceapi.nets.ageGenderNet.loadFromUri('/models'),
+        faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
+        faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+        faceapi.nets.faceExpressionNet.loadFromUri('/models')
+    ])
+    console.log("----- START STEAM ------");
+    const fileInput1 = document.getElementById("fileInput1");
+    const fileInput2 = document.getElementById("fileInput2");
+    const image1 = document.getElementById("image1");
+    const image2 = document.getElementById("image2");
+    const compareButton = document.getElementById("compareButton");
+    const resultDiv = document.getElementById("result");
+    
+
+    fileInput1.addEventListener("change", () => {
+        const file = fileInput1.files[0];
+        if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            image1.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+        }
+    });
+
+    fileInput2.addEventListener("change", () => {
+        const file = fileInput2.files[0];
+        if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            image2.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+        }
+    });
+
+    compareButton.addEventListener("click", async () => {
+        if (!image1.src || !image2.src) {
+        resultDiv.textContent = "Please select both images.";
+        return;
+        }
+
+        const detection1 = await faceapi.detectSingleFace(image1).withFaceLandmarks().withFaceDescriptor();
+        const detection2 = await faceapi.detectSingleFace(image2).withFaceLandmarks().withFaceDescriptor();
+
+        if (!detection1 || !detection2) {
+        resultDiv.textContent = "Couldn't detect face in one or both images.";
+        return;
+        }
+
+        const descriptors1 = detection1.descriptor;
+        const descriptors2 = detection2.descriptor;
+        const distance = faceapi.euclideanDistance(descriptors1, descriptors2);
+        console.log(distance.toString());
+
+        if (distance < 0.4) {
+        console.log("sama :", distance.toString());
+        } else {
+        console.log("berbeda :", distance.toString());
+        }
+
+        resultDiv.textContent = `Face similarity: ${distance}`;
+    });
+    });
+
+   
+</script>
+<!-- <script >
+
+let video = document.getElementById("video") as HTMLVideoElement;
+let width = 1280;
+let height = 720;
+
+const startSteam = () => {
+    console.log("----- START STEAM ------");
+    navigator.mediaDevices.getUserMedia({
+        video: {width, height},
+        audio : false
+    }).then((steam) => {video.srcObject = steam});
+}
+
+console.log(faceapi.nets);
+
+console.log("----- START LOAD MODEL ------");
+Promise.all([
+    faceapi.nets.ageGenderNet.loadFromUri('/models'),
+    faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
+    faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+    faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+    faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+    faceapi.nets.faceExpressionNet.loadFromUri('/models')
+]).then(startSteam);
+
+
+async function detect() {
+
+    
+    const detections = await faceapi.detectAllFaces(video)
+                                .withFaceLandmarks()
+                                .withFaceExpressions()
+                                .withAgeAndGender();
+    console.log("DETECTION: ", detections);
+
+    if (detections) {
+    const faceMacher = new faceapi.FaceMatcher(detections, 0.6)
+    const bestMatch = faceMacher.findBestMatch(detections.descriptor)
+    console.log(bestMatch.toString())
+    }
+}
+
+video.addEventListener('play', ()=> {
+
+    setInterval(detect, 100);
+})
+</script> -->
